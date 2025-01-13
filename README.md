@@ -1,7 +1,20 @@
-
 ---
-Arduino IDE,基于 **ESP8266** 的 **本地网页游戏中心服务器**，主要功能是为用户提供一个通过 Wi-Fi 热点访问的网页游戏平台。
-Arduino IDE, based on the **ESP8266**, creates a **local web game center server**. Its main functionality is to provide users with a web-based game platform accessible via a Wi-Fi hotspot.
+Arduino IDE 1.8.19,基于 **ESP8266** 的 **本地网页游戏中心服务器**，主要功能是为用户提供一个通过 Wi-Fi 热点访问的网页游戏平台。
+Arduino IDE 1.8.19, based on the **ESP8266**, creates a **local web game center server**. Its main functionality is to provide users with a web-based game platform accessible via a Wi-Fi hotspot.
+
+
+https://github.com/user-attachments/assets/05e5b457-cc3b-47b1-af55-9ce356506980
+
+
+![_cgi-bin_mmwebwx-bin_webwxgetmsgimg__ MsgID=7455071154444351074 skey=@crypt_1aa0a47_e7a3109856102f4eb19f35727984888b mmweb_appid=wx_webfilehelper](https://github.com/user-attachments/assets/c50c84e4-b75e-4014-ab73-653fae0eb071)
+
+![_cgi-bin_mmwebwx-bin_webwxgetmsgimg__ MsgID=5647126113885545366 skey=@crypt_1aa0a47_e7a3109856102f4eb19f35727984888b mmweb_appid=wx_webfilehelper](https://github.com/user-attachments/assets/c983f6c6-3b0f-4566-ae84-5fc9eb68488a)
+![image](https://github.com/user-attachments/assets/830453c1-afed-462f-92e7-4f4e6ee0fbe3)
+
+![image](https://github.com/user-attachments/assets/cc857d7b-797d-4b1f-a9f1-ce7bfb9ef9ec)
+
+![image](https://github.com/user-attachments/assets/52616fa8-cb0a-499c-8934-c5ea42badbac)
+
 ### **版权声明 / Copyright Notice**
 
 #### **游戏版权 / Game Copyright**
@@ -38,7 +51,7 @@ Arduino IDE, based on the **ESP8266**, creates a **local web game center server*
   - https://www.aconvert.com/cn/audio/extract/  
   - https://www.freeconvert.com/zh/mp3-compressor  
   - https://www.mianfeiziti.com/font_preview-961.htm  
-
+  - https://www.bilibili.com/video/BV17bpJeNEzb/
 ---
 
 ### **声明结束 / End of Notice**
