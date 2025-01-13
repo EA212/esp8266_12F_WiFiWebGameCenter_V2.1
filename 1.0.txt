@@ -1,0 +1,311 @@
+#include <ESP8266WiFi.h>
+#include <ESPAsyncWebServer.h>
+#include <FS.h> // 包含SPIFFS库
+#include <ArduinoJson.h> // 用于解析JSON
+// 设置AP的SSID和密码
+const char* ssid = "瑜神游戏中心服务器";
+const char* password = ""; // 如果不需要密码，可以留空
+AsyncWebServer server(80);
+// HTML页面内容（完整版）
+const char indexPage[] PROGMEM = R"=====(
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <title>瑜神游戏中心</title>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #f0f0f0; text-align: center; margin-top: 50px; }
+    a { display: block; margin: 10px auto; padding: 10px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 5px; width: 200px; }
+    a:hover { background-color: #0056b3; }
+
+    /* 遮罩层样式 */
+    #loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      z-index: 9999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      transition: opacity 1s ease-out; /* 添加过渡效果 */
+    }
+
+    @keyframes textChange {
+      0% { opacity: 1; transform: scale(1); }
+      25% { opacity: 1; transform: scale(1.2); }
+      50% { opacity: 0; transform: scale(1); }
+      75% { opacity: 1; transform: scale(1.2); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    .animated-text::before {
+      content: "瑜神号";
+      font-size: 48px;
+      font-weight: bold;
+      color: white;
+      animation-name: textChange;
+      animation-duration: 1.5s;
+      animation-timing-function: ease-in-out;
+      animation-fill-mode: forwards;
+    }
+
+    .animated-text::after {
+      content: "启动！";
+      font-size: 48px;
+      font-weight: bold;
+      color: white;
+      animation-name: textChange;
+      animation-duration: 1.5s;
+      animation-delay: 1.5s;
+      animation-timing-function: ease-in-out;
+      animation-fill-mode: forwards;
+    }
+
+    /* 新增闪烁效果 */
+    @keyframes flash {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* 渐隐效果 */
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
+    .flash-effect {
+      animation-name: flash;
+      animation-duration: 0.5s;
+      animation-iteration-count: infinite;
+      animation-direction: alternate;
+    }
+
+    .fade-out {
+      animation-name: fadeOut;
+      animation-duration: 1s;
+      animation-fill-mode: forwards;
+    }
+  </style>
+</head>
+<body>
+  <!-- 遮罩层 -->
+  <div id="loading-overlay" class="flash-effect">
+    <div class="animated-text"></div>
+    <audio id="loading-audio" src="/loading.mp3"></audio>
+  </div>
+
+  <h1>瑜神号</h1>
+  <p> 超级游戏中心</p>
+  <div id="game-list"></div>
+  <script>
+    function playAudioAndHideOverlay() {
+      var audio = document.getElementById('loading-audio');
+      var overlay = document.getElementById('loading-overlay');
+
+      // 尝试播放音频
+      audio.play().then(function() {
+        console.log('Audio playback started.');
+      }).catch(function(error) {
+        console.error('Error playing audio:', error);
+      });
+
+      // 应用渐隐效果并设置延迟隐藏遮罩层
+      overlay.classList.add('fade-out');
+      setTimeout(function() {
+        overlay.style.display = 'none';
+      }, 1000); // 与fadeOut动画持续时间相同
+    }
+
+    function startLoading() {
+      // 设置定时器，在6秒后自动触发点击事件
+      setTimeout(playAudioAndHideOverlay, 6000);
+
+      // 监听遮罩层的点击事件，立即开始动画和播放音频
+      var overlay = document.getElementById('loading-overlay');
+      overlay.addEventListener('click', playAudioAndHideOverlay);
+    }
+
+    async function loadGames() {
+      const cachedGames = JSON.parse(localStorage.getItem('games')) || [];
+      renderGames(cachedGames);
+
+      try {
+        const response = await fetch('/games', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ games: cachedGames })
+        });
+
+        if (!response.ok) throw new Error('Network response was not ok');
+        
+        const updatedGames = await response.json();
+        if (updatedGames.length > 0) {
+          localStorage.setItem('games', JSON.stringify(updatedGames));
+          renderGames(updatedGames);
+        }
+      } catch (error) {
+        console.error('There has been a problem with your fetch operation:', error);
+      }
+
+      function renderGames(games) {
+        const gameListElement = document.getElementById('game-list');
+        gameListElement.innerHTML = ''; // 清空之前的内容
+        games.forEach(game => {
+          const link = document.createElement('a');
+          link.href = game.url;
+          link.textContent = game.name;
+          link.onclick = () => {
+            this.style.display = 'none';
+            document.documentElement.requestFullscreen().catch(err => console.log(err));
+          };
+          gameListElement.appendChild(link);
+        });
+      }
+    }
+
+    window.onload = function() {
+      startLoading();
+      loadGames();
+    }
+  </script>
+</body>
+</html>
+)=====";
+void setup() {
+  Serial.begin(115200);
+  
+  // 初始化SPIFFS
+  if (!SPIFFS.begin()) {
+    Serial.println("Failed to mount file system");
+    return;
+  }
+  // 配置AP模式
+  WiFi.softAP(ssid, password);
+  Serial.println();
+  Serial.print("AP IP address: ");
+  Serial.println(WiFi.softAPIP());
+  // 定义路由处理函数
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send_P(200, "text/html", indexPage); // 使用PROGMEM存储HTML内容
+  });
+  // 提供获取游戏列表的API
+  server.on("/games", HTTP_POST, [](AsyncWebServerRequest *request){
+    handleGamesRequest(request);
+  });
+  // 对于其他所有未找到的请求，尝试读取文件
+  server.onNotFound([](AsyncWebServerRequest *request){
+    String path = request->url();
+    if (handleFileRead(request, path)) return;
+    request->send(404, "text/plain", "File Not Found");
+  });
+  // 启动服务器
+  server.begin();
+  Serial.println("HTTP server started");
+}
+void handleGamesRequest(AsyncWebServerRequest *request) {
+  DynamicJsonDocument doc(2048); // 增加容量以适应更大的JSON数据
+  String requestBody = ""; // 用来存储接收到的body内容
+  // 如果有body内容，则将其添加到requestBody字符串中
+  if (request->hasParam("plain", true)) { // 检查是否有原始POST数据
+    requestBody = request->getParam("plain", true)->value();
+  } else {
+    Serial.println("No body content received.");
+    request->send(400, "text/plain", "Bad Request: No body content");
+    return;
+  }
+  DeserializationError error = deserializeJson(doc, requestBody);
+  if (error) {
+    Serial.print("deserializeJson() failed: ");
+    Serial.println(error.c_str());
+    request->send(400, "text/plain", "Bad Request: Invalid JSON");
+    return;
+  }
+  JsonArray cachedGames = doc["games"].as<JsonArray>();
+  String gameListJson = "[";
+  Dir rootDir = SPIFFS.openDir("/");
+  bool firstEntry = true;
+  bool printedHeader = false;
+  bool hasChanges = false;
+  while (rootDir.next()) {
+    String fileName = rootDir.fileName();
+    if (fileName.startsWith("/")) fileName = fileName.substring(1); // 去掉开头的斜杠
+    // 检查是否为文件夹并且包含index.html
+    if (SPIFFS.exists(fileName + "/") && SPIFFS.exists(fileName + "/index.html")) {
+      bool isNewGame = true;
+      for (JsonObject cachedGame : cachedGames) {
+        if (cachedGame["name"] == fileName) {
+          isNewGame = false;
+          break;
+        }
+      }
+      if (isNewGame) {
+        if (!firstEntry) gameListJson += ",";
+        else firstEntry = false;
+        gameListJson += "{\"name\":\"" + fileName + "\",\"url\":\"/" + fileName + "/index.html\"}";
+
+        // 打印文件夹信息到串口，但只打印一次头信息
+        if (!printedHeader) {
+          Serial.println("Directory structure:");
+          printedHeader = true;
+        }
+        Serial.println("Found new game in folder: " + fileName);
+        hasChanges = true;
+      }
+    }
+  }
+  gameListJson += "]";
+  if (hasChanges) {
+    request->send(200, "application/json", gameListJson);
+  } else {
+    request->send(204, "application/json", ""); // No Content status code
+  }
+}
+bool handleFileRead(AsyncWebServerRequest *request, String path) {
+  Serial.println("handleFileRead: " + path);
+  // 如果请求的是根路径或文件夹，则默认返回index.html
+  if (path.endsWith("/")) {
+    path += "index.html";
+  }
+  // 快速检查文件是否存在，避免不必要的打开操作
+  if (!SPIFFS.exists(path)) {
+    return false;
+  }
+  File file = SPIFFS.open(path, "r");
+  if (file) {
+    // 添加字符集到Content-Type中
+    String contentType = getContentType(path);
+    if (contentType.startsWith("text/")) {
+      contentType += "; charset=UTF-8";
+    }
+    request->send(SPIFFS, path, contentType);
+    file.close();
+    return true;
+  }
+
+  return false;
+}
+void loop() {
+  // 如果没有其他任务，可以保持为空
+  // 或者在这里加入需要周期性执行的代码
+}
+String getContentType(String filename) {
+  if (filename.endsWith(".html")) return "text/html";
+  else if (filename.endsWith(".css")) return "text/css";
+  else if (filename.endsWith(".js")) return "application/javascript";
+  else if (filename.endsWith(".ico")) return "image/x-icon"; // 支持ICO文件
+  else if (filename.endsWith(".png")) return "image/png";
+  else if (filename.endsWith(".gif")) return "image/gif";
+  else if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) return "image/jpeg";
+  else if (filename.endsWith(".svg")) return "image/svg+xml";
+  else if (filename.endsWith(".json")) return "application/json";
+  else if (filename.endsWith(".mp3")) return "audio/mpeg"; // 支持MP3文件
+  // 添加对其他文件类型的处理...
+  return "application/octet-stream"; // 默认二进制流类型
+}
